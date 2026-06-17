@@ -278,6 +278,9 @@ def build(template, md_path, out, *,
     to_remove = []
     found_h1 = False
     for child in list(body.iterchildren()):
+        # 保留 body 末尾的 sectPr（含页面尺寸/页边距），否则后续 add_table 取 sections[-1] 会越界
+        if child.tag == qn('w:sectPr'):
+            continue
         if child.tag == qn('w:p'):
             pPr = child.find(qn('w:pPr'))
             style_val = ''
