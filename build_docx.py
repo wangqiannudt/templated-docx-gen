@@ -233,7 +233,7 @@ def build(template, md_path, out, *,
 
     # 1. 修改封面主标题
     title_changed = False
-    if cover_title_style:
+    if cover_title_style and cover_title:
         for p in doc.paragraphs:
             if p.style.name == cover_title_style and p.text.strip() and not title_changed:
                 if p.runs:
@@ -242,11 +242,13 @@ def build(template, md_path, out, *,
                         r.text = ''
                 title_changed = True
                 break
+    elif cover_title_style and not cover_title:
+        print('[warn] 找到封面标题样式但未传 --cover-title，跳过')
     else:
         print('[warn] 未找到封面标题样式，跳过封面标题填入')
 
     # 2. 修改封面日期
-    if cover_date_style:
+    if cover_date_style and cover_date:
         for p in doc.paragraphs:
             if p.style.name == cover_date_style and ('年' in p.text or re.search(r'\d{4}', p.text)):
                 if p.runs:
@@ -254,6 +256,8 @@ def build(template, md_path, out, *,
                     for r in p.runs[1:]:
                         r.text = ''
                 break
+    elif cover_date_style and not cover_date:
+        print('[warn] 找到封面日期样式但未传 --cover-date，跳过')
     else:
         print('[warn] 未找到封面日期样式，跳过封面日期填入')
 
@@ -485,8 +489,8 @@ def main():
     p.add_argument('md')
     p.add_argument('out')
     p.add_argument('--manifest', default=None)
-    p.add_argument('--cover-title', required=True)
-    p.add_argument('--cover-date', required=True)
+    p.add_argument('--cover-title', default=None, help='封面标题；模板无封面样式时可不传')
+    p.add_argument('--cover-date', default=None, help='封面日期；模板无封面样式时可不传')
     p.add_argument('--change-log', action='append', default=None,
                    help='每行一次，列用 | 分隔，如 "V1.0|2025.12|编制单位|增加|说明"')
     p.add_argument('--image-width-cm', type=float, default=13)
