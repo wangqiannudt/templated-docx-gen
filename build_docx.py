@@ -30,6 +30,19 @@ def match_caption(text):
         return None
     return (m.group(1), m.group(2).strip())
 
+def compute_col_widths(header, ncols, narrow_keys, total_w, narrow_w):
+    """计算各列宽(dxa)。表头命中 narrow_keys 的列给 narrow_w，其余均分剩余。
+    header 不足 ncols 时按空串处理。"""
+    col_w = []
+    for ci in range(ncols):
+        cell_header = header[ci] if ci < len(header) else ''
+        col_w.append(narrow_w if any(k in cell_header for k in narrow_keys) else 0)
+    wide_n = col_w.count(0)
+    if wide_n > 0:
+        wide_w = (total_w - sum(col_w)) // wide_n
+        col_w = [w if w > 0 else wide_w for w in col_w]
+    return col_w
+
 def add_runs(paragraph, text):
     clean = text.replace('**', '').replace('`', '')
     paragraph.add_run(clean)
@@ -302,11 +315,7 @@ def build(template, md_path, out, cover_title, cover_date, change_row, strip_hea
             header = rows[0] if rows else []
             total_w = 8505
             narrow_w = 1000
-            col_w = [narrow_w if any(k in (header[ci] if ci < len(header) else '') for k in narrow_keys) else 0 for ci in range(ncols)]
-            wide_n = col_w.count(0)
-            if wide_n > 0:
-                wide_w = (total_w - sum(col_w)) // wide_n
-                col_w = [w if w > 0 else wide_w for w in col_w]
+            col_w = compute_col_widths(header, ncols, narrow_keys, total_w, narrow_w)
             # 关键：设置 tblGrid 的 gridCol（fixed布局下真正决定列宽的是 gridCol）
             tbl_el = tbl._element
             # 移除旧 grid
