@@ -43,3 +43,34 @@ def test_find_style_none_when_absent():
 def test_find_style_heading_default():
     doc = Document()
     assert build_docx.find_style(doc, ['Heading 1']) == 'Heading 1'
+
+
+def test_detect_change_log_table_by_header():
+    doc = Document()
+    t = doc.add_table(rows=2, cols=5)
+    t.rows[0].cells[0].text = '版本号'
+    idx, ncols = build_docx.detect_change_log_table(doc)
+    assert idx == 0 and ncols == 5
+
+
+def test_detect_change_log_table_keyword_variant():
+    doc = Document()
+    t = doc.add_table(rows=1, cols=4)
+    t.rows[0].cells[0].text = '版本'
+    idx, ncols = build_docx.detect_change_log_table(doc)
+    assert idx == 0 and ncols == 4
+
+
+def test_detect_change_log_table_none_when_no_match():
+    doc = Document()
+    doc.add_table(rows=2, cols=3)
+    assert build_docx.detect_change_log_table(doc) is None
+
+
+def test_detect_change_log_table_skips_first_picks_right():
+    doc = Document()
+    doc.add_table(rows=1, cols=3)
+    t = doc.add_table(rows=2, cols=5)
+    t.rows[0].cells[0].text = '版本号'
+    idx, ncols = build_docx.detect_change_log_table(doc)
+    assert idx == 1 and ncols == 5

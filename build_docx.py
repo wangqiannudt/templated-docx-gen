@@ -70,6 +70,19 @@ def find_style(doc, candidates):
             return name
     return None
 
+def detect_change_log_table(doc):
+    """找变更记录表：首行某格含 版本/版本号/修订 的第一个表。
+    返回 (table_index, ncols) 或 None。"""
+    keywords = ('版本号', '版本', '修订')
+    for i, t in enumerate(doc.tables):
+        if not t.rows:
+            continue
+        header_text = ''.join(c.text for c in t.rows[0].cells)
+        if any(k in header_text for k in keywords):
+            ncols = len(t.rows[0].cells)
+            return (i, ncols)
+    return None
+
 def add_runs(paragraph, text):
     clean = text.replace('**', '').replace('`', '')
     paragraph.add_run(clean)
