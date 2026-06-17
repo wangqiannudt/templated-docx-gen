@@ -83,6 +83,32 @@ def detect_change_log_table(doc):
             return (i, ncols)
     return None
 
+def apply_change_log(table, rows):
+    """重建变更记录表数据行（保留表头行）。rows 为 [[c1,c2,...], ...]；
+    按表实际列数对齐，多余列留空，行不足则在表头后追加新行。
+    rows 为空则不动表（最小惊讶）。"""
+    if not rows:
+        return
+    ncols = len(table.rows[0].cells)
+    while len(table.rows) > 1:
+        tr = table.rows[-1]._tr
+        tr.getparent().remove(tr)
+    for rd in rows:
+        new_tr = deepcopy(table.rows[0]._tr)
+        table._tbl.append(new_tr)
+        new_row = table.rows[-1]
+        for ci, cell in enumerate(new_row.cells):
+            if ci >= ncols:
+                break
+            val = rd[ci] if ci < len(rd) else ''
+            for para in cell.paragraphs:
+                for r in para.runs:
+                    r.text = ''
+            if cell.paragraphs and cell.paragraphs[0].runs:
+                cell.paragraphs[0].runs[0].text = val
+            else:
+                cell.paragraphs[0].text = val
+
 def add_runs(paragraph, text):
     clean = text.replace('**', '').replace('`', '')
     paragraph.add_run(clean)
@@ -167,7 +193,7 @@ def parse_md(md_text):
         i += 1
     return items
 
-def build(template, md_path, out, cover_title, cover_date, change_row, strip_heading_num=False):
+def build(template, md_path, out, cover_title, cover_date, change_row, strip_heading_num=False, change_log_rows=None):
     doc = Document(template)
     body = doc.element.body
 
@@ -192,30 +218,10 @@ def build(template, md_path, out, cover_title, cover_date, change_row, strip_hea
             break
 
     # 3. 变更记录表：清空数据行，重建（初建何姗 + V1.0王倩，2025.11）
-    if doc.tables:
-        t = doc.tables[0]
-        first_row_text = ''.join(c.text for c in t.rows[0].cells)
-        if '版本号' in first_row_text and len(t.rows) >= 2:
-            while len(t.rows) > 1:
-                tr = t.rows[-1]._tr
-                tr.getparent().remove(tr)
-            rows_data = [
-                ['V0.0', '2025.11', '何姗', '增加', '初建'],
-                ['V1.0', '2025.11', '王倩', '增加', '结合课题研究成果形成正式版本'],
-            ]
-            for rd in rows_data:
-                new_tr = deepcopy(t.rows[0]._tr)
-                t._tbl.append(new_tr)
-                new_row = t.rows[-1]
-                for ci, cell in enumerate(new_row.cells):
-                    if ci < len(rd):
-                        for para in cell.paragraphs:
-                            for r in para.runs:
-                                r.text = ''
-                        if cell.paragraphs and cell.paragraphs[0].runs:
-                            cell.paragraphs[0].runs[0].text = rd[ci]
-                        else:
-                            cell.paragraphs[0].text = rd[ci]
+    _cl = detect_change_log_table(doc)
+    if _cl:
+        _idx, _ncols = _cl
+        apply_change_log(doc.tables[_idx], change_log_rows)
 
     # 4. 删除原正文区域（第一个Heading1到结尾）
     # 动态找Heading1的styleId（不同模板可能是Heading1/1/11等）
@@ -419,4 +425,4 @@ def build(template, md_path, out, cover_title, cover_date, change_row, strip_hea
 
 if __name__ == '__main__':
     strip_num = len(sys.argv) > 7 and sys.argv[7] == 'strip_num'
-    build(sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4], sys.argv[5], sys.argv[6].split('|'), strip_num)
+    build(sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4], sys.argv[5], sys.argv[6].split('|'), strip_num, None)
