@@ -2,7 +2,7 @@ import build_docx
 
 
 def test_figure_caption_with_space():
-    assert build_docx.match_caption("图1 示意图") == ('图', '示意图')
+    assert build_docx.match_caption("图1 系统示意图") == ('图', '系统示意图')
 
 
 def test_figure_caption_with_dot():
