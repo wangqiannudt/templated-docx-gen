@@ -1,0 +1,16 @@
+# 技术总结报告（大纲目录）模板 manifest（skill 探测+核对 2026-06-17）
+# 误判修正：cover_* 探测成正文样式 GF二级标题/C503-正文格式 → null（开头是辑要页/目次，无独立封皮段）；
+#           heading_styles 探测 Heading 1/2/3 → 正文实际用 GF一级/二级/三级标题；
+#           GF 标题样式无 numId（纯文字），模板期望阿拉伯多级编号 → compute_heading_num: true 由 build 计算。
+cover_title_style: null
+cover_date_style: null
+heading_styles:
+  - GF一级标题
+  - GF二级标题
+  - GF三级标题
+caption_styles:
+  table: GF表题
+  figure: GF图题
+change_log_table: auto
+strip_heading_num: false
+compute_heading_num: true
