@@ -12,6 +12,16 @@ def strip_title_num(text):
     text = re.sub(r'^\d+(\.\d+)*\s+', '', text)
     return text.strip()
 
+def is_index_result(style_name, text):
+    """判断段落是否是目录/表图目录的旧显示值行（需清理域值、保留域结构）。"""
+    s = (style_name or '').lower()
+    t = (text or '').strip()
+    return (
+        s.startswith('toc')
+        or 'table of figures' in s
+        or t == 'No table of figures entries found.'
+    )
+
 def add_runs(paragraph, text):
     clean = text.replace('**', '').replace('`', '')
     paragraph.add_run(clean)
@@ -45,13 +55,8 @@ def clear_frontmatter_field_results(doc):
             style_name = ''
         if p.style.name == 'Heading 1':
             break
-        text = p.text.strip()
-        is_index_result = (
-            style_name.startswith('toc')
-            or 'table of figures' in style_name
-            or text == 'No table of figures entries found.'
-        )
-        if not is_index_result:
+        text = p.text
+        if not is_index_result(style_name, text):
             continue
         for r in p._p.findall(qn('w:r')):
             if r.find(qn('w:instrText')) is not None:
