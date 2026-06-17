@@ -1,0 +1,15 @@
+# 辅助脚本依赖（PDF / PPT / OCR / 测试），核心 docx 生成不需要，按需安装：
+#   pdfplumber / PyMuPDF / pypdf / pypdfium2 - PDF 文本提取与渲染
+#   matplotlib - render_pdf 绘图
+#   pytesseract - OCR（另需系统 tesseract：brew install tesseract tesseract-lang）
+#   python-pptx - extract_pptx
+#   pytest - 运行测试套件
+# 安装：${CLAUDE_PLUGIN_ROOT}/docenv/bin/pip install -r ${CLAUDE_PLUGIN_ROOT}/requirements-optional.txt
+matplotlib==3.11.0
+pdfplumber==0.11.10
+PyMuPDF==1.27.2.3
+pypdf==6.13.2
+pypdfium2==5.9.0
+pytesseract==0.3.13
+python-pptx
+pytest==8.3.4
