@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """基于模板docx生成正式文档：保留封面/变更记录/节结构，正文用模板样式（标题自动编号）"""
-import sys, re
+import re
 from copy import deepcopy
 from docx import Document
 from docx.oxml.ns import qn
@@ -101,13 +101,19 @@ def apply_change_log(table, rows):
             if ci >= ncols:
                 break
             val = rd[ci] if ci < len(rd) else ''
+            # 清掉继承自表头 run 的格式：移除所有 run 后新增纯净 run 写值
             for para in cell.paragraphs:
-                for r in para.runs:
-                    r.text = ''
-            if cell.paragraphs and cell.paragraphs[0].runs:
-                cell.paragraphs[0].runs[0].text = val
-            else:
-                cell.paragraphs[0].text = val
+                for r in list(para.runs):
+                    r._r.getparent().remove(r._r)
+            cell.paragraphs[0].add_run(val)
+
+def load_manifest(path):
+    """读 manifest YAML，返回 dict；path 为 None 返回 {}。"""
+    if not path:
+        return {}
+    import yaml
+    with open(path, 'r', encoding='utf-8') as f:
+        return yaml.safe_load(f) or {}
 
 def add_runs(paragraph, text):
     clean = text.replace('**', '').replace('`', '')
@@ -193,31 +199,53 @@ def parse_md(md_text):
         i += 1
     return items
 
-def build(template, md_path, out, cover_title, cover_date, change_row, strip_heading_num=False, change_log_rows=None):
+def build(template, md_path, out, *,
+          cover_title, cover_date, change_log_rows=None,
+          image_width_cm=13, narrow_keys=None, strip_heading_num=False,
+          table_total_width=None, manifest=None):
     doc = Document(template)
     body = doc.element.body
 
+    # 样式名解析（manifest 优先，find_style 候选兜底）
+    mf = manifest or {}
+    cover_title_style = mf.get('cover_title_style') or find_style(doc, ['封皮标题','报告标题','文档标题','主标题','标题'])
+    cover_date_style = mf.get('cover_date_style') or find_style(doc, ['封皮单位','编制日期','日期','单位'])
+    cap_mf = mf.get('caption_styles') or {}
+    cap_table = cap_mf.get('table') or find_style(doc, ['表题注','表题','表格题注'])
+    cap_figure = cap_mf.get('figure') or find_style(doc, ['图题注','图题','图片题注'])
+    heading_styles = mf.get('heading_styles') or [
+        find_style(doc, ['Heading 1']) or 'Heading 1',
+        find_style(doc, ['Heading 2']) or 'Heading 2',
+        find_style(doc, ['Heading 3']) or 'Heading 3',
+    ]
+
     # 1. 修改封面主标题
     title_changed = False
-    for p in doc.paragraphs:
-        if p.style.name == '封皮标题' and p.text.strip() and not title_changed:
-            if p.runs:
-                p.runs[0].text = cover_title
-                for r in p.runs[1:]:
-                    r.text = ''
-            title_changed = True
-            break
+    if cover_title_style:
+        for p in doc.paragraphs:
+            if p.style.name == cover_title_style and p.text.strip() and not title_changed:
+                if p.runs:
+                    p.runs[0].text = cover_title
+                    for r in p.runs[1:]:
+                        r.text = ''
+                title_changed = True
+                break
+    else:
+        print('[warn] 未找到封面标题样式，跳过封面标题填入')
 
     # 2. 修改封面日期
-    for p in doc.paragraphs:
-        if p.style.name == '封皮单位' and ('年' in p.text or re.search(r'\d{4}', p.text)):
-            if p.runs:
-                p.runs[0].text = cover_date
-                for r in p.runs[1:]:
-                    r.text = ''
-            break
+    if cover_date_style:
+        for p in doc.paragraphs:
+            if p.style.name == cover_date_style and ('年' in p.text or re.search(r'\d{4}', p.text)):
+                if p.runs:
+                    p.runs[0].text = cover_date
+                    for r in p.runs[1:]:
+                        r.text = ''
+                break
+    else:
+        print('[warn] 未找到封面日期样式，跳过封面日期填入')
 
-    # 3. 变更记录表：清空数据行，重建（初建何姗 + V1.0王倩，2025.11）
+    # 3. 变更记录表：清空数据行，重建
     _cl = detect_change_log_table(doc)
     if _cl:
         _idx, _ncols = _cl
@@ -258,6 +286,11 @@ def build(template, md_path, out, cover_title, cover_date, change_row, strip_hea
         md_text = f.read()
     items = parse_md(md_text)
 
+    # 表格宽度参数（统一从 detect_page_body_width 取，删除裸 8505）
+    total_w = table_total_width or detect_page_body_width(doc)
+    nk = narrow_keys if narrow_keys is not None else ('序号','数量','时间','阶段','年度','是否','编号','级别','日期','方式','用途','类型')
+    narrow_w = 1000
+
     tbl_style = None
     for s in doc.styles:
         if 'Table Grid' in s.name or '网格' in s.name:
@@ -265,16 +298,22 @@ def build(template, md_path, out, cover_title, cover_date, change_row, strip_hea
             break
 
     seq_counters = {'图': 0, '表': 0}
+    def _add_heading(level, text):
+        name = heading_styles[level-1] if level-1 < len(heading_styles) else None
+        try:
+            p = doc.add_paragraph(style=name) if name else doc.add_paragraph()
+        except Exception:
+            p = doc.add_paragraph()
+        add_runs(p, text)
+        return p
+
     for typ, content in items:
         if typ == 'h1':
-            p = doc.add_paragraph(style='Heading 1')
-            add_runs(p, content)
+            _add_heading(1, content)
         elif typ == 'h2':
-            p = doc.add_paragraph(style='Heading 2')
-            add_runs(p, content)
+            _add_heading(2, content)
         elif typ == 'h3':
-            p = doc.add_paragraph(style='Heading 3')
-            add_runs(p, content)
+            _add_heading(3, content)
         elif typ == 'p':
             clean = content.replace('**', '').replace('`', '')
             cap = match_caption(clean)
@@ -282,8 +321,10 @@ def build(template, md_path, out, cover_title, cover_date, change_row, strip_hea
                 label, desc = cap
                 seq_counters[label] += 1
                 p = doc.add_paragraph()
-                try: p.style = doc.styles['表题注' if label == '表' else '图题注']
-                except Exception: pass
+                cap_name = cap_table if label == '表' else cap_figure
+                if cap_name:
+                    try: p.style = doc.styles[cap_name]
+                    except Exception: pass
                 p.add_run(label + ' ')
                 add_seq_field(p, label, seq_counters[label])
                 p.add_run(' ' + desc)
@@ -298,12 +339,13 @@ def build(template, md_path, out, cover_title, cover_date, change_row, strip_hea
             import os
             _full = img_path if os.path.isabs(img_path) else os.path.join(os.path.dirname(md_path), img_path)
             try:
-                pic_run.add_picture(_full, width=Cm(13))
+                pic_run.add_picture(_full, width=Cm(image_width_cm))
             except Exception as e:
                 print('图片插入失败', _full, e)
             cap_p = doc.add_paragraph()
-            try: cap_p.style = doc.styles['图题注']
-            except Exception: pass
+            if cap_figure:
+                try: cap_p.style = doc.styles[cap_figure]
+                except Exception: pass
             cm = match_caption(caption)
             if cm:
                 label, desc = cm
@@ -343,8 +385,8 @@ def build(template, md_path, out, cover_title, cover_date, change_row, strip_hea
                 el.set(qn('w:val'), 'single'); el.set(qn('w:sz'), '4'); el.set(qn('w:space'), '0'); el.set(qn('w:color'), '000000')
                 tblBorders.append(el)
             tblPr_el.append(tblBorders)
-            # 总宽度(版心8505 dxa≈15cm) + fixed布局 + tblInd=0
-            for tag, attrs in (('w:tblW', [('w:w','8505'),('w:type','dxa')]),
+            # 总宽度 + fixed布局 + tblInd=0
+            for tag, attrs in (('w:tblW', [('w:w', str(total_w)),('w:type','dxa')]),
                                ('w:tblLayout', [('w:type','fixed')]),
                                ('w:tblInd', [('w:w','0'),('w:type','dxa')])):
                 el = OxmlElement(tag)
@@ -356,12 +398,9 @@ def build(template, md_path, out, cover_title, cover_date, change_row, strip_hea
                 el = OxmlElement('w:'+edge); el.set(qn('w:w'), w); el.set(qn('w:type'),'dxa'); tblMar.append(el)
             tblPr_el.append(tblMar)
             tbl.alignment = WD_ALIGN_PARAGRAPH.CENTER
-            # 列宽：短列(序号/数量/时间/阶段/年度/是否/编号/级别/日期/方式/用途/类型)窄，其余均分宽
-            narrow_keys = ('序号','数量','时间','阶段','年度','是否','编号','级别','日期','方式','用途','类型')
+            # 列宽：短列窄，其余均分宽
             header = rows[0] if rows else []
-            total_w = 8505
-            narrow_w = 1000
-            col_w = compute_col_widths(header, ncols, narrow_keys, total_w, narrow_w)
+            col_w = compute_col_widths(header, ncols, nk, total_w, narrow_w)
             # 关键：设置 tblGrid 的 gridCol（fixed布局下真正决定列宽的是 gridCol）
             tbl_el = tbl._element
             # 移除旧 grid
@@ -423,6 +462,35 @@ def build(template, md_path, out, cover_title, cover_date, change_row, strip_hea
     doc.save(out)
     print(f"已生成: {out}")
 
+def main():
+    import argparse
+    p = argparse.ArgumentParser(description='基于模板 docx 从 markdown 生成规范归档文档')
+    p.add_argument('template')
+    p.add_argument('md')
+    p.add_argument('out')
+    p.add_argument('--manifest', default=None)
+    p.add_argument('--cover-title', required=True)
+    p.add_argument('--cover-date', required=True)
+    p.add_argument('--change-log', action='append', default=None,
+                   help='每行一次，列用 | 分隔，如 "V1.0|2025.12|编制单位|增加|说明"')
+    p.add_argument('--image-width-cm', type=float, default=13)
+    p.add_argument('--narrow-keys', default=None, help='逗号分隔，如 序号,数量,时间')
+    p.add_argument('--strip-heading-num', action='store_true', default=None)
+    p.add_argument('--table-total-width', type=int, default=None)
+    a = p.parse_args()
+
+    manifest = load_manifest(a.manifest)
+    change_log_rows = [row.split('|') for row in a.change_log] if a.change_log else None
+    narrow_keys = a.narrow_keys.split(',') if a.narrow_keys else None
+    strip_num = a.strip_heading_num if a.strip_heading_num is not None else (manifest or {}).get('strip_heading_num', False)
+
+    build(a.template, a.md, a.out,
+          cover_title=a.cover_title, cover_date=a.cover_date,
+          change_log_rows=change_log_rows,
+          image_width_cm=a.image_width_cm, narrow_keys=narrow_keys,
+          strip_heading_num=strip_num,
+          table_total_width=a.table_total_width, manifest=manifest)
+
+
 if __name__ == '__main__':
-    strip_num = len(sys.argv) > 7 and sys.argv[7] == 'strip_num'
-    build(sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4], sys.argv[5], sys.argv[6].split('|'), strip_num, None)
+    main()
