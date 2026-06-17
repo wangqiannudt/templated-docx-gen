@@ -4,12 +4,17 @@
 
 ## 环境准备
 
+核心 docx 生成只需 `python-docx + PyYAML + pillow`（见 `requirements.txt`）；PDF/PPT/OCR 辅助脚本依赖见 `requirements-optional.txt`，按需安装。
+
 ```bash
 cd ~/dev/项目材料docx工具
 python3 -m venv docenv
 source docenv/bin/activate            # Windows: docenv\Scripts\activate
-pip install -r requirements.txt
+pip install -r requirements.txt                  # 核心
+pip install -r requirements-optional.txt         # 辅助脚本（PDF/PPT/OCR，按需）
 ```
+
+或直接 `CLAUDE_PLUGIN_ROOT=. sh setup.sh`（建 venv + 装核心）。
 
 系统依赖（OCR 扫描件 PDF 用）：`brew install tesseract tesseract-lang`、`brew install poppler`（PDF 渲染）。
 
@@ -95,3 +100,23 @@ cd ~/dev/项目材料docx工具 && docenv/bin/python -m pytest -q    # 44 测试
 - md 里图片用 `assets/xxx.png` 相对路径
 - build_docx.py 按 md 文件所在目录解析图片、嵌入 docx
 - 自包含、可移植：交付定稿文件夹（md + assets + docx）整体拷走即可
+
+## 作为 Claude Code 插件使用
+
+本仓库同时是一个 Claude Code 插件（plugin + marketplace 二合一）。技能 `templated-docx-gen` 随插件分发，脚本路径通过 `${CLAUDE_PLUGIN_ROOT}` 解析，不再依赖写死的本机路径。
+
+```bash
+# 1. 添加本仓库为插件市场（本地路径或远程 git URL）
+/plugin marketplace add ~/dev/项目材料docx工具
+#   远程：/plugin marketplace add <owner>/<repo>
+
+# 2. 安装插件
+/plugin install templated-docx-gen@docx-template-tools
+
+# 3. 首次使用前准备 Python 环境
+CLAUDE_PLUGIN_ROOT=. sh setup.sh
+```
+
+或用 CLI（非交互）：`claude plugin marketplace add ~/dev/项目材料docx工具`、`claude plugin install templated-docx-gen@docx-template-tools`。
+
+技能触发后，venv 用 `${CLAUDE_PLUGIN_ROOT}/docenv/bin/python`，模板 manifest 在 `${CLAUDE_PLUGIN_ROOT}/templates/`。
