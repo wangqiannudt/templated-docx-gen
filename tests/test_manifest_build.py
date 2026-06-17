@@ -102,6 +102,30 @@ def _tpl_with_chinese_headings(path):
     doc.save(str(path))
 
 
+def test_build_compute_heading_num(tmp_path):
+    """compute_heading_num=True：strip 自动编号 + build 自己算阿拉伯多级编号拼进标题文字。"""
+    tpl = tmp_path / 'tpl.docx'; _tpl_with_custom_styles(str(tpl))
+    md = tmp_path / 'a.md'; md.write_text('# 概述\n## 子项A\n## 子项B\n# 另一章\n## 子项C\n', encoding='utf-8')
+    out = tmp_path / 'o.docx'
+    manifest = {
+        'cover_title_style': '报告标题',
+        'cover_date_style': '编制日期',
+        'heading_styles': ['Heading 1', 'Heading 2', 'Heading 3'],
+        'change_log_table': 'auto',
+        'compute_heading_num': True,
+    }
+    build_docx.build(str(tpl), str(md), str(out),
+                     cover_title='新标题', cover_date='2026年1月', manifest=manifest)
+    d = Document(str(out))
+    heads = [(p.style.name, p.text) for p in d.paragraphs
+             if p.style.name in ('Heading 1', 'Heading 2', 'Heading 3')]
+    assert ('Heading 1', '1 概述') in heads
+    assert ('Heading 2', '1.1 子项A') in heads
+    assert ('Heading 2', '1.2 子项B') in heads
+    assert ('Heading 1', '2 另一章') in heads
+    assert ('Heading 2', '2.1 子项C') in heads
+
+
 def test_build_chinese_heading_styles_and_strip(tmp_path):
     """中文样式名 标题 1/2/3 能用，且 strip_heading_num=True 能去掉中文标题样式的 numPr。"""
     tpl = tmp_path / 'tpl.docx'; _tpl_with_chinese_headings(str(tpl))

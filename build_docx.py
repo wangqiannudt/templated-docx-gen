@@ -209,7 +209,7 @@ def parse_md(md_text):
 def build(template, md_path, out, *,
           cover_title, cover_date, change_log_rows=None,
           image_width_cm=13, narrow_keys=None, strip_heading_num=None,
-          table_total_width=None, manifest=None):
+          table_total_width=None, manifest=None, compute_heading_num=None):
     doc = Document(template)
     body = doc.element.body
 
@@ -218,6 +218,10 @@ def build(template, md_path, out, *,
     # strip_heading_num 未显式传 → 取 manifest 的值（让 build 直接调用/skill 也生效）
     if strip_heading_num is None:
         strip_heading_num = mf.get('strip_heading_num', False)
+    # compute_heading_num：strip 模板自动编号 + build 自己算阿拉伯多级编号拼进标题文字
+    # （模板自动编号在 Word 里不可靠：H2/H3 不按上级重置。文字编号确定性可靠）
+    if compute_heading_num is None:
+        compute_heading_num = mf.get('compute_heading_num', False)
     cover_title_style = resolve_style(mf, 'cover_title_style', doc, ['封皮标题','报告标题','文档标题','主标题','标题'])
     cover_date_style = resolve_style(mf, 'cover_date_style', doc, ['封皮单位','编制日期','日期'])
     cap_mf = mf.get('caption_styles') or {}
@@ -320,6 +324,13 @@ def build(template, md_path, out, *,
             break
 
     seq_counters = {'图': 0, '表': 0}
+    heading_cnt = [0, 0, 0]   # compute 模式的多级标题计数器
+    def _heading_prefix(level):
+        """compute 模式：返回 '1' / '1.1' / '1.1.1 ' 前缀，并维护/重置下级计数器。"""
+        heading_cnt[level-1] += 1
+        for i in range(level, 3):
+            heading_cnt[i] = 0
+        return '.'.join(str(heading_cnt[i]) for i in range(level)) + ' '
     def _add_heading(level, text):
         name = heading_styles[level-1] if level-1 < len(heading_styles) else None
         try:
@@ -332,11 +343,11 @@ def build(template, md_path, out, *,
 
     for typ, content in items:
         if typ == 'h1':
-            _add_heading(1, content)
+            _add_heading(1, (_heading_prefix(1) if compute_heading_num else '') + content)
         elif typ == 'h2':
-            _add_heading(2, content)
+            _add_heading(2, (_heading_prefix(2) if compute_heading_num else '') + content)
         elif typ == 'h3':
-            _add_heading(3, content)
+            _add_heading(3, (_heading_prefix(3) if compute_heading_num else '') + content)
         elif typ == 'p':
             clean = content.replace('**', '').replace('`', '')
             cap = match_caption(clean)
@@ -469,8 +480,11 @@ def build(template, md_path, out, *,
                             for r in para.runs:
                                 r.bold = True
 
-    # 可选：去掉Heading 1/2/3自动编号（用于总结报告等文字自带中文编号、而模板自动编号不每章重置的情况）
-    if strip_heading_num:
+    # 可选：去掉Heading 1/2/3自动编号
+    #  - strip_heading_num：模板自动编号不每章重置（研究总结报告），用 md 文字编号
+    #  - compute_heading_num：模板自动编号在 Word 里不可靠（H2/H3 不按上级重置），
+    #    build 自己算阿拉伯编号拼进文字，故也要 strip 避免双编号
+    if strip_heading_num or compute_heading_num:
         # 按 manifest 的 heading_styles 名字剥离 numPr（配置驱动，兼容英文 Heading / 中文 标题）
         targets = set(heading_styles or [])
         for s in doc.styles:
@@ -501,18 +515,21 @@ def main():
     p.add_argument('--image-width-cm', type=float, default=13)
     p.add_argument('--narrow-keys', default=None, help='逗号分隔，如 序号,数量,时间')
     p.add_argument('--strip-heading-num', action='store_true', default=None)
+    p.add_argument('--compute-heading-num', action='store_true', default=None,
+                   help='strip 模板自动编号 + build 自己算阿拉伯多级编号(1/1.1/1.1.1)拼进标题')
     p.add_argument('--table-total-width', type=int, default=None)
     a = p.parse_args()
 
     manifest = load_manifest(a.manifest)
     change_log_rows = [row.split('|') for row in a.change_log] if a.change_log else None
     narrow_keys = a.narrow_keys.split(',') if a.narrow_keys else None
-    # strip_heading_num：CLI 传 True 则用 CLI；未传(None) → build 内部取 manifest 值
+    # strip/compute：CLI 传 True 则用 CLI；未传(None) → build 内部取 manifest 值
     build(a.template, a.md, a.out,
           cover_title=a.cover_title, cover_date=a.cover_date,
           change_log_rows=change_log_rows,
           image_width_cm=a.image_width_cm, narrow_keys=narrow_keys,
           strip_heading_num=a.strip_heading_num,
+          compute_heading_num=a.compute_heading_num,
           table_total_width=a.table_total_width, manifest=manifest)
 
 

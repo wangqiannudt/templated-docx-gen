@@ -9,4 +9,5 @@ caption_styles:
   table: 表题注
   figure: 图题注
 change_log_table: auto
-strip_heading_num: false   # v0.0 模板 Heading 自动编号每章重置，不 strip
+strip_heading_num: false
+compute_heading_num: true   # 模板自动编号在 Word 里 H2/H3 不按上级重置(实测3.4累加)，改用 build 算阿拉伯编号拼进文字，确定性可靠
