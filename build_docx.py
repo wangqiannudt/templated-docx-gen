@@ -208,13 +208,16 @@ def parse_md(md_text):
 
 def build(template, md_path, out, *,
           cover_title, cover_date, change_log_rows=None,
-          image_width_cm=13, narrow_keys=None, strip_heading_num=False,
+          image_width_cm=13, narrow_keys=None, strip_heading_num=None,
           table_total_width=None, manifest=None):
     doc = Document(template)
     body = doc.element.body
 
     # 样式名解析（manifest 优先；显式写 null/空 → 禁用；未写 key → find_style 候选兜底）
     mf = manifest or {}
+    # strip_heading_num 未显式传 → 取 manifest 的值（让 build 直接调用/skill 也生效）
+    if strip_heading_num is None:
+        strip_heading_num = mf.get('strip_heading_num', False)
     cover_title_style = resolve_style(mf, 'cover_title_style', doc, ['封皮标题','报告标题','文档标题','主标题','标题'])
     cover_date_style = resolve_style(mf, 'cover_date_style', doc, ['封皮单位','编制日期','日期'])
     cap_mf = mf.get('caption_styles') or {}
@@ -468,9 +471,11 @@ def build(template, md_path, out, *,
 
     # 可选：去掉Heading 1/2/3自动编号（用于总结报告等文字自带中文编号、而模板自动编号不每章重置的情况）
     if strip_heading_num:
+        # 按 manifest 的 heading_styles 名字剥离 numPr（配置驱动，兼容英文 Heading / 中文 标题）
+        targets = set(heading_styles or [])
         for s in doc.styles:
             try:
-                if s.name in ('Heading 1','heading 1','Heading 2','heading 2','Heading 3','heading 3'):
+                if s.name in targets:
                     pPr = s.element.find(qn('w:pPr'))
                     if pPr is not None:
                         numPr = pPr.find(qn('w:numPr'))
@@ -502,13 +507,12 @@ def main():
     manifest = load_manifest(a.manifest)
     change_log_rows = [row.split('|') for row in a.change_log] if a.change_log else None
     narrow_keys = a.narrow_keys.split(',') if a.narrow_keys else None
-    strip_num = a.strip_heading_num if a.strip_heading_num is not None else (manifest or {}).get('strip_heading_num', False)
-
+    # strip_heading_num：CLI 传 True 则用 CLI；未传(None) → build 内部取 manifest 值
     build(a.template, a.md, a.out,
           cover_title=a.cover_title, cover_date=a.cover_date,
           change_log_rows=change_log_rows,
           image_width_cm=a.image_width_cm, narrow_keys=narrow_keys,
-          strip_heading_num=strip_num,
+          strip_heading_num=a.strip_heading_num,
           table_total_width=a.table_total_width, manifest=manifest)
 
 
