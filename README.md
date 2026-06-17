@@ -72,7 +72,7 @@ $PY ~/dev/项目材料docx工具/build_docx.py \
   --change-log "V1.0|2025.12|编制单位|编制|结合课题研究成果与验收要求编制"
 ```
 
-CLI 参数：`--cover-title/--cover-date`（封面 null 模板可不传）、`--change-log`（多次=多行，列用 `|`）、`--image-width-cm`（默认13）、`--narrow-keys`（逗号分隔）、`--strip-heading-num`（CLI 覆盖 manifest）、`--table-total-width`（覆盖自动探测版心宽）。
+CLI 参数：`--cover-title/--cover-date`（封面 null 模板可不传）、`--change-log`（多次=多行，列用 `|`）、`--image-width-cm`（默认13）、`--narrow-keys`（逗号分隔）、`--strip-heading-num`（去自动编号，用 md 文字编号）、`--compute-heading-num`（**去自动编号 + build 自算阿拉伯多级编号 1/1.1/1.1.1 拼进标题**——模板自动编号在 Word 里 H2/H3 不重置时用，V0.0 已启用）、`--table-total-width`（覆盖自动探测版心宽）。
 
 **3. 加目录自动更新标记**
 
