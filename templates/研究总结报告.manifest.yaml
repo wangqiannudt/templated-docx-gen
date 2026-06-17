@@ -1,5 +1,7 @@
-# 研究总结报告（大纲目录）模板 manifest（用户 2026-06-17 确认）
-# 此模板为"大纲目录"版，无封皮段，封面不自动填（cover_*_style: null，封面另处理）
+# 研究总结报告（大纲目录）模板 manifest（skill 探测+核对 2026-06-17）
+# 此模板为"大纲目录"版，无独立封皮段；探测草稿把 cover_title_style 误判成"目录标题"，
+# 经核对（skill 必查项 #1）改为 null（封面另处理）。
+# Heading 样式本身无 numId（编号写在正文文字里），strip_heading_num 设 true 与 md 自带文字编号兼容。
 cover_title_style: null
 cover_date_style: null
 heading_styles:
@@ -10,4 +12,4 @@ caption_styles:
   table: 表题注
   figure: 图题注
 change_log_table: auto
-strip_heading_num: true    # 此模板 Heading 自动编号不每章重置（numId 累加），必须 strip 用文字编号
+strip_heading_num: true
