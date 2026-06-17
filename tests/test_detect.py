@@ -25,3 +25,21 @@ def test_detect_body_width_fallback_when_missing():
     doc = Document()
     w = build_docx.detect_page_body_width(doc)
     assert isinstance(w, int) and w > 0
+
+
+def test_find_style_by_candidate():
+    doc = Document()
+    from docx.enum.style import WD_STYLE_TYPE
+    doc.styles.add_style('报告标题', WD_STYLE_TYPE.PARAGRAPH)
+    found = build_docx.find_style(doc, ['封皮标题', '报告标题', '主标题'])
+    assert found == '报告标题'
+
+
+def test_find_style_none_when_absent():
+    doc = Document()
+    assert build_docx.find_style(doc, ['不存在的样式']) is None
+
+
+def test_find_style_heading_default():
+    doc = Document()
+    assert build_docx.find_style(doc, ['Heading 1']) == 'Heading 1'

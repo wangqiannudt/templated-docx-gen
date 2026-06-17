@@ -57,6 +57,19 @@ def detect_page_body_width(doc):
         pass
     return 8505
 
+def find_style(doc, candidates):
+    """在 doc.styles 里按候选名顺序找第一个存在的样式名；找不到返回 None。"""
+    existing = set()
+    for s in doc.styles:
+        try:
+            existing.add(s.name)
+        except Exception:
+            pass
+    for name in candidates:
+        if name in existing:
+            return name
+    return None
+
 def add_runs(paragraph, text):
     clean = text.replace('**', '').replace('`', '')
     paragraph.add_run(clean)
