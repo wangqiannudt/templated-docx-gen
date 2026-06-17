@@ -1,0 +1,13 @@
+# 研究总结报告（大纲目录）模板 manifest（用户 2026-06-17 确认）
+# 此模板为"大纲目录"版，无封皮段，封面不自动填（cover_*_style: null，封面另处理）
+cover_title_style: null
+cover_date_style: null
+heading_styles:
+  - Heading 1
+  - Heading 2
+  - Heading 3
+caption_styles:
+  table: 表题注
+  figure: 图题注
+change_log_table: auto
+strip_heading_num: true    # 此模板 Heading 自动编号不每章重置（numId 累加），必须 strip 用文字编号

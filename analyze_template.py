@@ -3,6 +3,7 @@
 import re
 import argparse
 from docx import Document
+from docx.enum.style import WD_STYLE_TYPE
 
 
 def _first_h1_index(doc):
@@ -16,10 +17,14 @@ def _first_h1_index(doc):
 
 
 def _existing_style_names(doc):
+    """只收段落样式名（排除字符样式）。
+    Word 为每个段落样式生成关联字符样式 '<名> 字符'，若一并收集会令 substring
+    匹配（如 find_caption）误命中字符样式（'表题注 字符'），故只取段落样式。"""
     names = set()
     for s in doc.styles:
         try:
-            names.add(s.name)
+            if s.type == WD_STYLE_TYPE.PARAGRAPH:
+                names.add(s.name)
         except Exception:
             pass
     return names
