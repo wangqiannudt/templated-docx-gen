@@ -1,0 +1,15 @@
+{
+  "name": "docx-template-tools",
+  "description": "用户的项目材料归档 docx 工具集（Claude Code 插件）",
+  "owner": { "name": "用户" },
+  "plugins": [
+    {
+      "name": "templated-docx-gen",
+      "source": "./",
+      "description": "模板+markdown→规范归档docx（SEQ题注/多级目录/表格几何）",
+      "version": "1.0.0",
+      "author": { "name": "用户" },
+      "license": "MIT"
+    }
+  ]
+}
