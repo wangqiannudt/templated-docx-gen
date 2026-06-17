@@ -22,6 +22,14 @@ def is_index_result(style_name, text):
         or t == 'No table of figures entries found.'
     )
 
+def match_caption(text):
+    """识别题注：'图N说明'/'表N说明'。N 为阿拉伯数字，后可跟 空格/./、/． 分隔再接非空说明。
+    返回 (label, desc) 或 None。要求'图/表'后必有数字，避免误伤'图片说明'等正文。"""
+    m = re.match(r'^(图|表)\s*\d+[\s.、．]*\s*(\S.*)', text)
+    if not m:
+        return None
+    return (m.group(1), m.group(2).strip())
+
 def add_runs(paragraph, text):
     clean = text.replace('**', '').replace('`', '')
     paragraph.add_run(clean)
@@ -210,24 +218,16 @@ def build(template, md_path, out, cover_title, cover_date, change_row, strip_hea
             add_runs(p, content)
         elif typ == 'p':
             clean = content.replace('**', '').replace('`', '')
-            table_m = re.match(r'^(表)\s*\d+\s*(.*)', clean)
-            fig_m = re.match(r'^(图)\s*\d*\s*(\S.*)', clean)
-            if table_m:
-                seq_counters['表'] += 1
+            cap = match_caption(clean)
+            if cap:
+                label, desc = cap
+                seq_counters[label] += 1
                 p = doc.add_paragraph()
-                try: p.style = doc.styles['表题注']
+                try: p.style = doc.styles['表题注' if label == '表' else '图题注']
                 except Exception: pass
-                p.add_run(table_m.group(1) + ' ')
-                add_seq_field(p, '表', seq_counters['表'])
-                p.add_run(' ' + table_m.group(2))
-            elif fig_m:
-                seq_counters['图'] += 1
-                p = doc.add_paragraph()
-                try: p.style = doc.styles['图题注']
-                except Exception: pass
-                p.add_run(fig_m.group(1) + ' ')
-                add_seq_field(p, '图', seq_counters['图'])
-                p.add_run(' ' + fig_m.group(2))
+                p.add_run(label + ' ')
+                add_seq_field(p, label, seq_counters[label])
+                p.add_run(' ' + desc)
             else:
                 p = doc.add_paragraph(style='Normal')
                 add_runs(p, content)
@@ -245,12 +245,13 @@ def build(template, md_path, out, cover_title, cover_date, change_row, strip_hea
             cap_p = doc.add_paragraph()
             try: cap_p.style = doc.styles['图题注']
             except Exception: pass
-            cm = re.match(r'^(图)\s*\d*\s*(\S.*)', caption)
+            cm = match_caption(caption)
             if cm:
-                seq_counters['图'] += 1
-                cap_p.add_run(cm.group(1)+' ')
-                add_seq_field(cap_p, '图', seq_counters['图'])
-                cap_p.add_run(' '+cm.group(2))
+                label, desc = cm
+                seq_counters[label] += 1
+                cap_p.add_run(label+' ')
+                add_seq_field(cap_p, label, seq_counters[label])
+                cap_p.add_run(' '+desc)
             else:
                 cap_p.add_run(caption)
         elif typ == 'li':
