@@ -1,6 +1,6 @@
 ---
 name: templated-docx-gen
-description: Use when generating formal Chinese archiving/规范 docx (试验方案, 试验大纲, 试验报告, 研究总结报告, 归档材料, 验证报告) from a Word template + markdown; when a docx needs cover page / change-log table / multi-level TOC fields / SEQ auto-numbered figure & table captions / controlled table column widths; or when handed a NEW Word template (e.g. 技术总结报告模板) whose structure must be probed before generating. Covers 规范归档/归档/规范格式文档.
+description: Use when generating formal Chinese archiving/规范 docx (试验方案, 试验大纲, 试验报告, 研究总结报告, 归档材料, 验证报告) from a Word template + markdown; when a docx needs cover page / change-log table / multi-level TOC fields / SEQ auto-numbered figure & table captions / controlled table column widths; or when handed a NEW Word template whose structure must be probed before generating. Covers 规范格式中文归档文档.
 ---
 
 # 模板化归档 docx 生成
@@ -13,7 +13,7 @@ description: Use when generating formal Chinese archiving/规范 docx (试验方
 
 ## When to Use
 
-- 用户给一个 Word 模板 + markdown，要生成规范归档 docx。
+- 用户提供 Word 模板 + markdown，要生成规范归档 docx。
 - 需要 SEQ 自动编号的图/表题注、多级目录域、变更记录表、封面填入。
 - 换了新模板（结构/样式名不同），要先探测再生成。
 
@@ -30,19 +30,19 @@ description: Use when generating formal Chinese archiving/规范 docx (试验方
 ## 工作流（给任意模板就能用）
 
 ```
-用户给：模板路径 + md + 文档参数
+输入：模板路径 + md + 文档参数
   │
   ├─ templates/<模板名>.manifest.yaml 存在？
   │    ├─ 是 → 直接用它（要求1：已有模板直接用）
   │    └─ 否 → 跑探测 → manifest 草稿 → 用户确认 → 存盘（要求2：新模板检测确认后生成）
-  └─ build_docx → enable_toc_update → 提示用户 Word 打开点"是"更新域
+  └─ build_docx → enable_toc_update → 提示用户用 Word 打开点"是"更新域
 ```
 
 **新模板探测**（manifest 不存在时）：
 
 ```bash
 cd ${CLAUDE_PLUGIN_ROOT}
-${CLAUDE_PLUGIN_ROOT}/docenv/bin/python ${CLAUDE_PLUGIN_ROOT}/analyze_template.py "<模板.docx>"          # 打印草稿给用户看
+${CLAUDE_PLUGIN_ROOT}/docenv/bin/python ${CLAUDE_PLUGIN_ROOT}/analyze_template.py "<模板.docx>"          # 打印草稿供核对
 ```
 
 草稿**经用户核对无误**后才存盘。**草稿若有误判（见下），手编 yaml 落盘——不要用 `-o` 一键存盘**，否则会把错误固化：
@@ -63,7 +63,7 @@ ${CLAUDE_PLUGIN_ROOT}/docenv/bin/python ${CLAUDE_PLUGIN_ROOT}/analyze_template.p
 ## 生成 + 目录更新
 
 ```bash
-cd ~/Desktop/<md与assets所在目录>     # 图片相对md目录解析，须在md所在目录跑
+cd <md与assets所在目录>     # 图片相对md目录解析，须在md所在目录跑
 
 ${CLAUDE_PLUGIN_ROOT}/docenv/bin/python ${CLAUDE_PLUGIN_ROOT}/build_docx.py \
   "<模板.docx>" "<正文.md>" "<输出.docx>" \
@@ -71,14 +71,14 @@ ${CLAUDE_PLUGIN_ROOT}/docenv/bin/python ${CLAUDE_PLUGIN_ROOT}/build_docx.py \
   --cover-title "标题" --cover-date "2025年12月" \
   --change-log "V1.0|2025.12|编制单位|增加|说明" \
   --change-log "V2.0|2026.03|编制单位|修订|补充"   # 多行=多次 --change-log
-  # 封面 null 的模板（如研究总结报告大纲目录版）可不传 --cover-title/--cover-date
+  # 封面 null 的模板可不传 --cover-title/--cover-date
   # [--strip-heading-num]  覆盖 manifest 的 strip（manifest 已配则不用传）
   # [--image-width-cm 13]  [--narrow-keys 序号,数量,时间]  [--table-total-width 8505]
 
 ${CLAUDE_PLUGIN_ROOT}/docenv/bin/python ${CLAUDE_PLUGIN_ROOT}/enable_toc_update.py "<输出.docx>"
 ```
 
-生成后告诉用户：**用 Word（不是 WPS/LibreOffice）打开 → 弹"是否更新域"→ 点"是"** → 正文目录/表目录/图目录/SEQ 编号全部刷新。
+生成后提示用户：**用 Word（不是 WPS/LibreOffice）打开 → 弹"是否更新域"→ 点"是"** → 正文目录/表目录/图目录/SEQ 编号全部刷新。
 
 交付时可直接粘贴给用户：
 ```
@@ -110,10 +110,10 @@ docx 已生成：<输出.docx>
 ## 关键陷阱（踩过的坑）
 
 - **❌ 绝不用 LibreOffice `--convert-to` 固化域值**：会破坏 SEQ fldChar 结构，导致 Word 表/图目录收集失败。目录更新只用 `updateFields` + Word 打开。
-- **⚠️ 模板 Heading 自动编号在 Word 里不可靠**：即便 numbering.xml 的 `lvlRestart` 写对了、也补全了，Word 仍可能让 H2/H3 计数器**全局累加不按上级重置**（实测 V0.0 模板出 3.4/5.6/5.10）。靠模板自动编号 = 赌 Word 引擎，**不要赌**。凡模板带 H2/H3 自动编号的，直接在 manifest 开 `compute_heading_num: true`：build 自己算 1/1.1/1.1.1 拼进标题文字，确定性可靠（md 标题文字本身不带阿拉伯编号时用这个；若 md 已带"一、/（一）"文字编号则用 `strip_heading_num`）。**生成后必须让用户在 Word 验收 H2/H3 重置**。
+- **⚠️ 模板 Heading 自动编号在 Word 里不可靠**：即便 numbering.xml 的 `lvlRestart` 写对了、也补全了，Word 仍可能让 H2/H3 计数器**全局累加不按上级重置**（实测某模板出 3.4/5.6/5.10）。靠模板自动编号 = 赌 Word 引擎，**不要赌**。凡模板带 H2/H3 自动编号的，直接在 manifest 开 `compute_heading_num: true`：build 自己算 1/1.1/1.1.1 拼进标题文字，确定性可靠（md 标题文字本身不带阿拉伯编号时用这个；若 md 已带"一、/（一）"文字编号则用 `strip_heading_num`）。**生成后必须让用户在 Word 验收 H2/H3 重置**。
 - **图片路径相对 md 文件目录**，不是工作目录。
 - **变更记录表按实际列数对齐**：模板几列就填几列，多余留空；不传 `--change-log` 则保留模板原变更记录不动。
-- **`strip_heading_num` 场景**：研究总结报告类模板 Heading 自动编号不每章重置 → 必须 strip，用 md 标题自带的文字编号（一、/（一））；试验类模板每章重置 → 不 strip。
+- **`strip_heading_num` 场景**：自动编号不每章重置的模板 → 必须 strip，用 md 标题自带的文字编号（一、/（一））；自动编号每章重置的模板 → 不 strip。
 - **版心宽自动探测**：从 sectPr 读 `pgSz.w − pgMar(left+right)`，不再写死；删正文区时已保留末尾 sectPr。
 
 ## 校验
