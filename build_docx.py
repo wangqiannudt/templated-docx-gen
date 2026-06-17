@@ -115,6 +115,13 @@ def load_manifest(path):
     with open(path, 'r', encoding='utf-8') as f:
         return yaml.safe_load(f) or {}
 
+def resolve_style(manifest, key, doc, candidates):
+    """样式解析：manifest 未写 key → find_style 候选兜底；显式写 null/空 → None（禁用）；写值 → 用值。"""
+    if key in manifest:
+        val = manifest[key]
+        return val if val else None   # 显式 null/空 → 禁用
+    return find_style(doc, candidates)
+
 def add_runs(paragraph, text):
     clean = text.replace('**', '').replace('`', '')
     paragraph.add_run(clean)
@@ -206,18 +213,23 @@ def build(template, md_path, out, *,
     doc = Document(template)
     body = doc.element.body
 
-    # 样式名解析（manifest 优先，find_style 候选兜底）
+    # 样式名解析（manifest 优先；显式写 null/空 → 禁用；未写 key → find_style 候选兜底）
     mf = manifest or {}
-    cover_title_style = mf.get('cover_title_style') or find_style(doc, ['封皮标题','报告标题','文档标题','主标题','标题'])
-    cover_date_style = mf.get('cover_date_style') or find_style(doc, ['封皮单位','编制日期','日期','单位'])
+    cover_title_style = resolve_style(mf, 'cover_title_style', doc, ['封皮标题','报告标题','文档标题','主标题','标题'])
+    cover_date_style = resolve_style(mf, 'cover_date_style', doc, ['封皮单位','编制日期','日期'])
     cap_mf = mf.get('caption_styles') or {}
-    cap_table = cap_mf.get('table') or find_style(doc, ['表题注','表题','表格题注'])
-    cap_figure = cap_mf.get('figure') or find_style(doc, ['图题注','图题','图片题注'])
-    heading_styles = mf.get('heading_styles') or [
-        find_style(doc, ['Heading 1']) or 'Heading 1',
-        find_style(doc, ['Heading 2']) or 'Heading 2',
-        find_style(doc, ['Heading 3']) or 'Heading 3',
-    ]
+    cap_table = resolve_style(cap_mf, 'table', doc, ['表题注','表题','表格题注'])
+    cap_figure = resolve_style(cap_mf, 'figure', doc, ['图题注','图','图片题注'])
+    if 'heading_styles' in mf:
+        heading_styles = mf['heading_styles']
+    else:
+        heading_styles = [
+            find_style(doc, ['Heading 1']) or 'Heading 1',
+            find_style(doc, ['Heading 2']) or 'Heading 2',
+            find_style(doc, ['Heading 3']) or 'Heading 3',
+        ]
+    if not heading_styles:
+        heading_styles = ['Heading 1', 'Heading 2', 'Heading 3']
 
     # 1. 修改封面主标题
     title_changed = False
@@ -303,6 +315,7 @@ def build(template, md_path, out, *,
         try:
             p = doc.add_paragraph(style=name) if name else doc.add_paragraph()
         except Exception:
+            print(f'[warn] Heading {level} 样式 {name!r} 无效，降级为 Normal')
             p = doc.add_paragraph()
         add_runs(p, text)
         return p
