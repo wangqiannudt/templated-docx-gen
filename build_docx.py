@@ -43,6 +43,20 @@ def compute_col_widths(header, ncols, narrow_keys, total_w, narrow_w):
         col_w = [w if w > 0 else wide_w for w in col_w]
     return col_w
 
+def detect_page_body_width(doc):
+    """从模板第一节 sectPr 读版心宽(dxa) = pgSz.w − pgMar(left+right)。
+    读不到则回退 8505（原默认）。"""
+    try:
+        sec = doc.sections[0]
+        pw = int(sec.page_width.twips) if sec.page_width else 0
+        lm = int(sec.left_margin.twips) if sec.left_margin else 0
+        rm = int(sec.right_margin.twips) if sec.right_margin else 0
+        if pw - lm - rm > 0:
+            return pw - lm - rm
+    except Exception:
+        pass
+    return 8505
+
 def add_runs(paragraph, text):
     clean = text.replace('**', '').replace('`', '')
     paragraph.add_run(clean)
