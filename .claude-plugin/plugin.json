@@ -1,6 +1,6 @@
 {
   "name": "templated-docx-gen",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "从 Word 模板 + markdown 生成规范归档 docx：保留封面/变更记录/节结构，SEQ 自动题注，多级目录域，表格几何控制。给任意模板都能探测+生成。",
   "license": "MIT",
   "author": { "name": "wangqiannudt" },

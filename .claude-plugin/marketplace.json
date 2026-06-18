@@ -7,7 +7,7 @@
       "name": "templated-docx-gen",
       "source": "./",
       "description": "模板+markdown→规范归档docx（SEQ题注/多级目录/表格几何）",
-      "version": "1.0.0",
+      "version": "1.1.0",
       "author": { "name": "wangqiannudt" },
       "license": "MIT"
     }
