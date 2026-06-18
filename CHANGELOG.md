@@ -9,6 +9,8 @@
 - 效果图 `docs/img/hero.png`（Markdown → 规范 docx 对比）、`docs/img/features.png`（四项核心亮点）
 - 顶部 shields 徽章（license / python / platform / claude-code）
 - 本 CHANGELOG，开始版本化管理
+- 版本同步脚本 `scripts/sync-version.py`（plugin.json 为版本唯一来源）
+- `CONTRIBUTING.md`（提交规范与发版流程）
 
 ### 变更
 - 模板 `试验方案-v0.0.manifest.yaml` → `质量体系-v0.0.manifest.yaml`（文件名、注释、README 模板表同步更新）
